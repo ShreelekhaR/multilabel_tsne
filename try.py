@@ -6,6 +6,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import base64
 import os
+import ipywidgets as widgets
+
+# Encode images to base64
+def image_to_base64(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode('utf-8')
 
 testing = 'graft_sentinel'
 # Load your image features data
@@ -53,9 +59,8 @@ plt.savefig('outputs/KD_tsne.png')
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
-import dash
 import plotly
-from dash import Dash, dcc, html, Input, Output, no_update, callback
+
 
 colors = {}
 for i in range(len(classes)):
@@ -69,14 +74,19 @@ with open('img_paths1.txt', 'r') as f:
     img_paths = f.readlines()
     img_paths = [x.strip() for x in img_paths]
 
+# Encode images to base64
+encoded_images = [image_to_base64(img_path) for img_path in img_paths]
+
+df = pd.DataFrame({'x': image_features_tsne[:,0], 'y': image_features_tsne[:,1], 'label': label_list, 'img_path': img_paths})
+# save the dataframe to a csv file
+df.to_csv('KD_tsne.csv', index=False)
+exit()
 
 fig = go.Figure()
 
-# plot the t-SNE and use label list to show the labels when hovering over the points
-fig = px.scatter(x=image_features_tsne[:,0], y=image_features_tsne[:,1], hover_name=label_list, labels={'hover_name':'Labels'}, title='t-SNE of Sentinel Images using KD Features',width=800, height=800)
 
-
-df = pd.DataFrame({'x': image_features_tsne[:,0], 'y': image_features_tsne[:,1], 'label': label_list, 'img_path': img_paths})
+# # plot the t-SNE and use label list to show the labels when hovering over the points
+fig = px.scatter(x=image_features_tsne[:,0], y=image_features_tsne[:,1], hover_name=label_list, labels={'hover_name':'Labels'}, title='t-SNE of Sentinel Images using KD Features',width=1200, height=800)
 
 # add a dropdown to shade the points by class when class is selected
 # prepend All to the list of classes
@@ -114,57 +124,10 @@ fig.update_layout(
 
 )
 
-# turn off native plotly.js hover effects - make sure to use
-# hoverinfo="none" rather than "skip" which also halts events.
-fig.update_traces(hoverinfo="none", hovertemplate=None)
-
-app = Dash(__name__,assets_external_path='/assets/')
 
 
-app.layout = html.Div([
-    dcc.Graph(id="graph-basic-2", figure=fig, clear_on_unhover=True),
-    dcc.Tooltip(id="graph-tooltip"),
-])
-
-
-@callback(
-    Output("graph-tooltip", "show"),
-    Output("graph-tooltip", "bbox"),
-    Output("graph-tooltip", "children"),
-    Input("graph-basic-2", "hoverData"),
-)
-def display_hover(hoverData):
-    if hoverData is None:
-        return False, no_update, no_update
-
-    # demo only shows the first point, but other points may also be available
-    pt = hoverData["points"][0]
-    bbox = pt["bbox"]
-    num = pt["pointNumber"]
-
-    df_row = df.iloc[num]
-    # load the image and description
-    # image_filename = df_row['img_path']
-    img_src = df_row['img_path']
-    # pil_img = open(img_src, 'rb').read()
-    # print(img_src)
-    desc = df_row['label']
-    if len(desc) > 300:
-        desc = desc[:100] + '...'
-
-    children = [
-        html.Div([
-            html.Img(src=img_src, style={"width": "100%"}),
-            html.P(f"{desc}"),
-        ], style={'width': '200px', 'white-space': 'normal'})
-    ]
-
-    return True, bbox, children
 
 # offline plot to html
-plotly.offline.plot(fig, filename='outputs/trial.html', auto_open=True)
+# plotly.offline.plot(fig, filename='trial.html', auto_open=True)
+pio.write_html(fig, file='trial.html', auto_open=True)
 
-
-if __name__ == "__main__":
-    app.run(debug=True, port=8001)
-    
